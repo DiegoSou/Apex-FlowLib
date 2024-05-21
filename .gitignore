@@ -25,6 +25,7 @@ scripts
 .prettierrc
 jest.config.js
 package.json
+manifest
 **/.husky/
 **/__pycache__/
 **/.venv/
