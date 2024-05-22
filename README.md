@@ -8,5 +8,5 @@
 
 # Como usar
 
-```
+```java
 ```

@@ -20,6 +20,13 @@ public without sharing class FlowInterviewService
     public Map<String, Object> outputs {get; private set;}
 
     /** 
+     * Configuração para ignorar fluxos que já foram executados
+    */
+    private Boolean ignoreDone;
+
+    public FlowInterviewService ignoreDone(Boolean v) { this.ignoreDone = v; return this; }
+
+    /** 
      * Inicializar uma execução de fluxos
     */
     public static FlowInterviewService execution()
@@ -28,20 +35,31 @@ public without sharing class FlowInterviewService
         service.handlers = new Map<FlowInterviewModel, OutputHandler>();
         service.dynamicInputs = new Map<String, Object>();
         service.outputs = new Map<String, Object>();
+        service.ignoreDone = false;
         
         return service;
     }
 
     /** 
-     * Mapear handler para um fluxo já adicionado ao iterator 
+     * Mapear handler para um fluxo
     */
+    public FlowInterviewService when(String flowName)
+    {
+        return this.when(flowName, null, null);
+    }
+
+    public FlowInterviewService when(String flowName, Object inputVariables)
+    {
+        return this.when(flowName, inputVariables, null);
+    }
+
     public FlowInterviewService when(String flowName, Object inputVariables, OutputHandler handler)
     {
         FlowInterviewModel flowInterview = new FlowInterviewModel(flowName, inputVariables);
         handlers.put(flowInterview, handler);
-        
+
         listDynamicVariables(flowInterview.getInputVariables());
-        
+
         return this;
     }
 
@@ -56,7 +74,7 @@ public without sharing class FlowInterviewService
 
             String variableStringValue = (String) inputVariables.get(variableKey);
             Boolean isDynamic = variableStringValue.startsWith('{!') && variableStringValue.endsWith('}');
-            
+
             if (isDynamic)
             {
                 dynamicInputs.put(variableKey, variableStringValue);
@@ -67,6 +85,11 @@ public without sharing class FlowInterviewService
     /** 
      * Adiciona instrução final
     */
+    public void then()
+    {
+        this.then(null);
+    }
+
     public void then(Finalizer serviceFinalizer)
     {
         Exception error;
@@ -88,17 +111,24 @@ public without sharing class FlowInterviewService
     /** 
      * Executar os fluxos e as handlers
     */
-    public void execute()
+    private void execute()
     {
         for(FlowInterviewModel flowInterview : handlers.keySet())
         {
+            if (flowInterview.hasDone() && this.ignoreDone) { continue; }
+
             flowInterview.setInputVariables(
                 updateDynamicVariables(flowInterview.getInputVariables())
             ).start();
 
             if (handlers.containsKey(flowInterview) && handlers.get(flowInterview) != null)
             {
-                outputs.putAll(handlers.get(flowInterview).handle(flowInterview));
+                Map<String, Object> handlerOutput = handlers.get(flowInterview).handle(flowInterview);
+
+                if (handlerOutput != null)
+                {
+                    outputs.putAll(handlerOutput);
+                }
             }
         }
     }
