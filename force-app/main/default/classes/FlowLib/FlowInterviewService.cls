@@ -45,41 +45,24 @@ public without sharing class FlowInterviewService
     */
     public FlowInterviewService when(String flowName)
     {
-        return this.when(flowName, null, null);
+        return this.when(flowName, null, new DefaultOutputHandler());
     }
 
     public FlowInterviewService when(String flowName, Object inputVariables)
     {
-        return this.when(flowName, inputVariables, null);
+        return this.when(flowName, inputVariables, new DefaultOutputHandler());
     }
 
     public FlowInterviewService when(String flowName, Object inputVariables, OutputHandler handler)
     {
         FlowInterviewModel flowInterview = new FlowInterviewModel(flowName, inputVariables);
-        handlers.put(flowInterview, handler);
-
-        listDynamicVariables(flowInterview.getInputVariables());
+        
+        this.handlers.put(flowInterview, handler);
+        this.dynamicInputs.putAll(
+            FlowInterviewService_Helper.instance.listDynamicVariables(flowInterview.getInputVariables())
+        );
 
         return this;
-    }
-
-    /** 
-     * Obter variaveis dinâmicas caso haja alguma
-    */
-    private void listDynamicVariables(Map<String, Object> inputVariables)
-    {
-        for (String variableKey : inputVariables.keySet())
-        {
-            if (!(inputVariables.get(variableKey) instanceOf String)) continue;
-
-            String variableStringValue = (String) inputVariables.get(variableKey);
-            Boolean isDynamic = variableStringValue.startsWith('{!') && variableStringValue.endsWith('}');
-
-            if (isDynamic)
-            {
-                dynamicInputs.put(variableKey, variableStringValue);
-            }
-        }
     }
 
     /** 
@@ -113,41 +96,49 @@ public without sharing class FlowInterviewService
     */
     private void execute()
     {
-        for(FlowInterviewModel flowInterview : handlers.keySet())
+        FlowInterviewModel_Iterator executionFlows = new FlowInterviewModel_Iterator(handlers.keySet());
+
+        while (executionFlows.hasNext())
         {
-            if (flowInterview.hasDone() && this.ignoreDone) { continue; }
-
-            flowInterview.setInputVariables(
-                updateDynamicVariables(flowInterview.getInputVariables())
-            ).start();
-
-            if (handlers.containsKey(flowInterview) && handlers.get(flowInterview) != null)
+            FlowInterviewModel currentFlowInterview = executionFlows.next();          
+            
+            if (currentFlowInterview.hasDone() && this.ignoreDone) 
             {
-                Map<String, Object> handlerOutput = handlers.get(flowInterview).handle(flowInterview);
-
-                if (handlerOutput != null)
-                {
-                    outputs.putAll(handlerOutput);
-                }
+                continue;
             }
+            
+            OutputHandler currentHandler = handlers.get(currentFlowInterview);
+            
+            executeFlowInterview(currentFlowInterview);
+            executeOutputHandler(currentFlowInterview, currentHandler, this.dynamicInputs);
         }
     }
 
     /** 
-     * Atualizar variaveis dinâmicas caso haja alguma
+     * Executar um fluxo
     */
-    private Map<String, Object> updateDynamicVariables(Map<String, Object> inputVariables)
+    private void executeFlowInterview(FlowInterviewModel flowInterview)
     {
-        for (String variableKey : inputVariables.keySet())
+        flowInterview.getInputVariables().putAll(
+            FlowInterviewService_Helper.instance.replaceDynamicVariables(flowInterview.getInputVariables(), this.outputs)
+        );
+
+        flowInterview.start();
+    }
+
+    /** 
+     * Executar uma handler
+    */
+    private void executeOutputHandler(FlowInterviewModel flowInterview, OutputHandler handler, Map<String, Object> dynamicVariables)
+    {
+        if (handler == null) { return; }
+
+        Map<String, Object> handlerOutput = handler.handle(flowInterview, dynamicVariables);
+        
+        if (handlerOutput != null)
         {
-            if (!dynamicInputs.containsKey(variableKey)) continue;
-            
-            if (outputs.containsKey(variableKey))
-            {
-                inputVariables.put(variableKey, outputs.get(variableKey));
-            }
+            outputs.putAll(handlerOutput);
         }
-        return inputVariables;
     }
 
     /** 
@@ -155,7 +146,7 @@ public without sharing class FlowInterviewService
     */
     public interface OutputHandler
     {
-        Map<String, Object> handle(FlowInterviewModel flowInterview);
+        Map<String, Object> handle(FlowInterviewModel currentFlowInterview, Map<String, Object> dynamicVariables);
     }
 
     /** 
@@ -165,4 +156,31 @@ public without sharing class FlowInterviewService
     {
         void execute(FlowInterviewService execution, Exception error);
     }
+
+    /** 
+     * Implementação padrão do contrato de Handler
+    */
+    public virtual class DefaultOutputHandler implements OutputHandler
+    {
+        /** 
+         * Manipular output baseado nos inputs dinâmicos da execução
+         * Se quiser usar dentro de um override: 
+         * 
+         * super.handle(currentFlowInterview, dynamicVariables);
+        */
+        public virtual Map<String, Object> handle(FlowInterviewModel currentFlowInterview, Map<String, Object> dynamicVariables)
+        {
+            Map<String, Object> output = new Map<String, Object>();
+
+            for (String variableName : dynamicVariables.keySet())
+            {
+                if (currentFlowInterview.getVariableValue(variableName) != null) 
+                {
+                    output.put(variableName, currentFlowInterview.getVariableValue(variableName));
+                }
+            }
+
+            return output;
+        }
+    } 
 }
