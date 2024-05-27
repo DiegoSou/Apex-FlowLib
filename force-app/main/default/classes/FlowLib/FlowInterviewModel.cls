@@ -9,7 +9,7 @@ public without sharing virtual class FlowInterviewModel
     //
 
     @TestVisible
-    private Flow.Interview record;
+    private transient Flow.Interview record;
 
     @TestVisible
     private String flowName;
@@ -138,6 +138,7 @@ public without sharing virtual class FlowInterviewModel
 
     public Object getVariableValue(String variableName)
     {
+        if (this.getRecord() == null) { System.debug('getVariableValue() -> A entrevista de fluxo não foi definida ou inicializada.'); }
         return this.getRecord()?.getVariableValue(variableName);
     }
 }
