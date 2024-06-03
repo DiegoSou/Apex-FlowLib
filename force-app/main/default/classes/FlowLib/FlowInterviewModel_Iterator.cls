@@ -1,4 +1,10 @@
 /** 
+ * @author Diego
+ * Essa classe faz parte da FlowLib
+ * Mais informações: https://github.com/DiegoSou/Apex-FlowLib
+*/
+
+/** 
  * Custom Iterator para iterar sobre uma lista de FlowInterviewModel
 */
 public class FlowInterviewModel_Iterator implements Iterator<FlowInterviewModel>
