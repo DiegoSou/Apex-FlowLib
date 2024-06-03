@@ -11,7 +11,7 @@
  * chamar um fluxo de busca de oportunidades baseado no nome da oportunidade, por fim, 
  * chamar um fluxo que associa os dois. 
  * &#10;
- * ```new StudentCourseAssignFlowServ().assignStudentToCourse('Diego Final', 'Análise');```
+ * ```new StudentCourseAssignFlowServ().assignStudentToCourse('Nome Conta', 'Análise');```
 */
 public without sharing class StudentCourseAssignFlowServ 
 {
