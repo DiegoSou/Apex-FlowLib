@@ -1,3 +1,9 @@
+/** 
+ * @author Diego
+ * Essa classe faz parte da FlowLib
+ * Mais informações: https://github.com/DiegoSou/Apex-FlowLib
+*/
+
 @SuppressWarnings('PMD')
 
 public without sharing class FlowInterviewService 
@@ -41,6 +47,14 @@ public without sharing class FlowInterviewService
     }
 
     /** 
+     * Obter as entrevistas mapeadas
+    */
+    public List<FlowInterviewModel> getInterviews()
+    {
+        return new List<FlowInterviewModel>(this.handlers.keySet());
+    }
+
+    /** 
      * Mapear handler para um fluxo
     */
     public FlowInterviewService when(String flowName)
@@ -58,9 +72,24 @@ public without sharing class FlowInterviewService
         FlowInterviewModel flowInterview = new FlowInterviewModel(flowName, inputVariables);
         
         this.handlers.put(flowInterview, handler);
-        this.dynamicInputs.putAll(
-            FlowInterviewService_Helper.instance.listDynamicVariables(flowInterview.getInputVariables())
-        );
+        this.registerDynamic(FlowInterviewService_Helper.instance.listDynamicVariables(flowInterview.getInputVariables()));
+
+        return this;
+    }
+
+    /** 
+     * Registrar uma variável para ser preenchida dinâmicamente
+    */
+    public FlowInterviewService registerDynamic(String variableName)
+    {
+        this.dynamicInputs.put(variableName, null);
+
+        return this;
+    }
+
+    public FlowInterviewService registerDynamic(Map<String, Object> dynamicInputs)
+    {
+        this.dynamicInputs.putAll(dynamicInputs);
 
         return this;
     }
@@ -70,7 +99,7 @@ public without sharing class FlowInterviewService
     */
     public void then()
     {
-        this.then(null);
+        this.then(new DefaultFinalizer());
     }
 
     public void then(Finalizer serviceFinalizer)
@@ -87,7 +116,9 @@ public without sharing class FlowInterviewService
         }
         finally
         {
-            serviceFinalizer?.execute(this, error);
+            Boolean ableToFinalize = !Test.isRunningTest() && serviceFinalizer != null;
+            
+            if (ableToFinalize) { serviceFinalizer.execute(this, error); }
         }
     }
 
@@ -133,12 +164,10 @@ public without sharing class FlowInterviewService
     {
         if (handler == null) { return; }
 
-        Map<String, Object> handlerOutput = handler.handle(flowInterview, dynamicVariables);
+        Map<String, Object> handlerOutput;
         
-        if (handlerOutput != null)
-        {
-            outputs.putAll(handlerOutput);
-        }
+        if (!Test.isRunningTest()) { handlerOutput = handler.handle(flowInterview, dynamicVariables); }
+        if (handlerOutput != null) { outputs.putAll(handlerOutput); }
     }
 
     /** 
@@ -164,9 +193,7 @@ public without sharing class FlowInterviewService
     {
         /** 
          * Manipular output baseado nos inputs dinâmicos da execução
-         * Se quiser usar dentro de um override: 
-         * 
-         * super.handle(currentFlowInterview, dynamicVariables);
+         * Se quiser usar dentro de um override: ```super.handle(currentFlowInterview, dynamicVariables);```
         */
         public virtual Map<String, Object> handle(FlowInterviewModel currentFlowInterview, Map<String, Object> dynamicVariables)
         {
@@ -183,4 +210,45 @@ public without sharing class FlowInterviewService
             return output;
         }
     } 
+
+    /** 
+     * Implementação padrão do contrato de Finalizer
+    */
+    public virtual class DefaultFinalizer implements Finalizer
+    {
+        /** 
+         * Fazer debug de como ocorreu a execução e executar os métodos de controle  
+        */
+        public void execute(FlowInterviewService execution, Exception error)
+        {
+            if (error != null)
+            {
+                this.error(execution, error);          
+                return;
+            }
+
+            this.success(execution);
+        }
+
+        /** 
+         * Chamado quando todas as entrevistas foram executadas com sucesso
+         * Se quiser usar dentro de um override: ```super.success(execution);```
+        */
+        public virtual void success(FlowInterviewService execution)
+        {
+            System.debug('Finalizer: Flow interviews executed successfully.');
+            System.debug('Outputs: ' + execution.outputs);
+        }
+
+        /** 
+         * Chamado caso tenha acontecido erros durante alguma execução de entrevista ou handler 
+         * Se quiser usar dentro de um override: ```super.error(execution, error);```
+        */
+        public virtual void error(FlowInterviewService execution, Exception error)
+        {
+            System.debug('Finalizer: An error occured during the execution');
+            System.debug('Message: ' + error.getMessage());
+            System.debug('Stack trace: \n' + error.getStackTraceString());
+        }
+    }
 }

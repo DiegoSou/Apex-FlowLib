@@ -1,3 +1,9 @@
+/** 
+ * @author Diego
+ * Essa classe faz parte da FlowLib
+ * Mais informações: https://github.com/DiegoSou/Apex-FlowLib
+*/
+
 @SuppressWarnings('PMD')
 
 public virtual class FlowInterviewService_Helper implements FlowInterviewService_IHelper

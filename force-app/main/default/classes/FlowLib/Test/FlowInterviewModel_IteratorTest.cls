@@ -1,3 +1,9 @@
+/** 
+ * @author Diego
+ * Essa classe faz parte da FlowLib
+ * Mais informações: https://github.com/DiegoSou/Apex-FlowLib
+*/
+
 @IsTest
 private class FlowInterviewModel_IteratorTest 
 {
